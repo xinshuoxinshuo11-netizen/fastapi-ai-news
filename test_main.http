@@ -1,0 +1,18 @@
+# 本项目只读接口示例；完整注册、收藏、历史与改密验收使用 verify_runtime.py。
+@baseUrl = http://127.0.0.1:19000
+
+### 获取分类
+GET {{baseUrl}}/api/news/categories
+Accept: application/json
+
+### 获取第一页新闻
+GET {{baseUrl}}/api/news/list?categoryId=1&page=1&pageSize=10
+Accept: application/json
+
+### 获取详情，每次读取正常增加浏览量
+GET {{baseUrl}}/api/news/detail?id=3
+Accept: application/json
+
+### 查看接口规范
+GET {{baseUrl}}/openapi.json
+Accept: application/json

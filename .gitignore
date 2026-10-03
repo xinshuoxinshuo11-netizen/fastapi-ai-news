@@ -1,0 +1,18 @@
+.venv/
+__pycache__/
+*.pyc
+# 本机环境配置不进入仓库，只提交不含凭据的示例。
+.env*
+!.env.example
+# 依赖、构建结果和运行记录可能包含运行时配置，不进入仓库。
+node_modules/
+dist/
+logs/
+tmp/
+*.log
+*.pid
+# 本机编辑器设置和临时数据库不进入仓库。
+.idea/
+.vscode/
+*.sqlite
+*.sqlite3
