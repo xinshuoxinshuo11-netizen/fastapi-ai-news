@@ -34,7 +34,10 @@ async def create_token(db: AsyncSession, user_id: int):
     token = str(uuid.uuid4())
     # timedelta(days=7, hours=2, minutes=30, seconds=10)
     expires_at = datetime.now() + timedelta(days=7)
-    query = select(UserToken).where(UserToken.user_id == user_id)
+    # 先锁定必然存在的用户行，串行处理该用户的令牌创建与轮换。
+    await db.execute(select(User.id).where(User.id == user_id).with_for_update())
+    # 锁定读取使用最新已提交数据，避免 MySQL 事务快照看不到刚创建的令牌。
+    query = select(UserToken).where(UserToken.user_id == user_id).with_for_update()
     result = await db.execute(query)
     user_token = result.scalar_one_or_none()
 
@@ -44,7 +47,8 @@ async def create_token(db: AsyncSession, user_id: int):
     else:
         user_token = UserToken(user_id=user_id, token=token, expires_at=expires_at)
         db.add(user_token)
-        await db.commit()
+
+    await db.commit()
 
     return token
 

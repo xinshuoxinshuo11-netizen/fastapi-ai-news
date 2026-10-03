@@ -49,6 +49,7 @@ class UserToken(Base):
     __table_args__ = (
         Index('token_UNIQUE', 'token'),
         Index('fk_user_token_user_idx', 'user_id'),
+        Index('uq_user_token_user', 'user_id', unique=True),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, comment="令牌ID")

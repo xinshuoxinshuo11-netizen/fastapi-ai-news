@@ -45,6 +45,19 @@ def main():
         check(status == expected, f'{method} {path} 状态码 {expected}')
         return content if return_full else content.get('data')
 
+    def concurrent_posts(path, data, token=None):
+        """用独立连接并发提交，只返回状态码，不输出令牌或密码。"""
+        def submit(_):
+            headers = {'Content-Type': 'application/json'}
+            if token:
+                headers['Authorization'] = token
+            req = urllib.request.Request(base + path, method='POST', headers=headers,
+                                         data=json.dumps(data).encode())
+            with urllib.request.urlopen(req, timeout=20) as response:
+                return response.status
+        with concurrent.futures.ThreadPoolExecutor(max_workers=6) as executor:
+            return list(executor.map(submit, range(6)))
+
     try:
         with connection.cursor() as cursor:
             cursor.execute('SELECT DATABASE()')
@@ -79,6 +92,14 @@ def main():
         request('POST', '/api/user/login', {'username': username, 'password': '错误密码'}, expected=401)
         login = request('POST', '/api/user/login', {'username': username, 'password': 'Course123!'})
         request('GET', '/api/user/info', token=token, expected=401)
+        # 删除的只是本次临时账号的令牌，验证并发首次登录也只创建一行。
+        with connection.cursor() as cursor:
+            cursor.execute('DELETE FROM user_token WHERE user_id=%s', (created_ids[0],))
+        codes = concurrent_posts('/api/user/login', {'username': username, 'password': 'Course123!'})
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT COUNT(*) FROM user_token WHERE user_id=%s', (created_ids[0],))
+            check(codes == [200] * 6 and cursor.fetchone()[0] == 1, '并发首次登录只产生一条令牌记录')
+        login = request('POST', '/api/user/login', {'username': username, 'password': 'Course123!'})
         token = login['token']
         request('GET', '/api/user/info', token='invalid', expected=401)
         info = request('GET', '/api/user/info', token=token)
@@ -96,6 +117,10 @@ def main():
         request('POST', '/api/favorite/add', {'newsId': 4}, token)
         request('DELETE', '/api/favorite/clear', token=token)
         check(request('GET', '/api/favorite/list', token=token)['total'] == 0, '清空收藏生效')
+        codes = concurrent_posts('/api/history/add', {'newsId': 17}, token)
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT COUNT(*) FROM history WHERE user_id=%s AND news_id=17', (created_ids[0],))
+            check(codes == [200] * 6 and cursor.fetchone()[0] == 1, '并发首次浏览只产生一条历史记录')
         history = request('POST', '/api/history/add', {'newsId': 17}, token)
         # 课程 SQL 的 DATETIME 精度为秒，等待跨秒后才能验证时间真实更新。
         time.sleep(1.05)

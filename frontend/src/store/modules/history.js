@@ -6,6 +6,7 @@ import { apiConfig } from '../../config/api.js';
 export const useHistoryStore = defineStore('history', {
   state: () => ({
     history: [],
+    historyOwner: 'news_history:guest',
   }),
   
   getters: {
@@ -13,6 +14,29 @@ export const useHistoryStore = defineStore('history', {
   },
   
   actions: {
+    getStorageKey() {
+      const user = useUserStore();
+      return user.getLoginStatus && user.userInfo?.id
+        ? `news_history:user:${user.userInfo.id}` : 'news_history:guest';
+    },
+
+    syncAccount() {
+      // 旧版共享缓存无法确定归属，丢弃它，避免跨账号显示。
+      localStorage.removeItem('news_history');
+      const key = this.getStorageKey();
+      if (this.historyOwner !== key) {
+        this.history = [];
+        this.historyOwner = key;
+      }
+      return key;
+    },
+
+    resetForAccount() {
+      this.history = [];
+      this.historyOwner = this.getStorageKey();
+      localStorage.removeItem('news_history');
+    },
+
     // 添加浏览历史 - API请求
     async addHistoryApi(newsId) {
       const userStore = useUserStore();
@@ -45,6 +69,7 @@ export const useHistoryStore = defineStore('history', {
     
     // 添加浏览历史 - 本地
     addHistory(news) {
+      this.syncAccount();
       // 检查是否已存在相同ID的新闻
       const existingIndex = this.history.findIndex(item => item.id === news.id);
       
@@ -70,6 +95,7 @@ export const useHistoryStore = defineStore('history', {
     
     // 清空浏览历史
     clearHistory() {
+      this.syncAccount();
       this.history = [];
       this.saveHistory();
     },
@@ -77,6 +103,8 @@ export const useHistoryStore = defineStore('history', {
     // 清空浏览历史 - API请求
     async clearHistoryApi() {
       const userStore = useUserStore();
+      const owner = this.syncAccount();
+      const token = userStore.token;
       
       // 检查用户是否登录
       if (!userStore.getLoginStatus) {
@@ -93,6 +121,9 @@ export const useHistoryStore = defineStore('history', {
           } 
         });
         
+        if (owner !== this.getStorageKey() || token !== userStore.token) {
+          return { success: false, stale: true, message: '账号已切换' };
+        }
         if (response.data.code === 200) {
           console.log('清空浏览历史API：清空成功');
           // 更新本地历史记录
@@ -110,6 +141,7 @@ export const useHistoryStore = defineStore('history', {
     
     // 删除单条浏览历史
     removeHistory(id, serverRecord = false) {
+      this.syncAccount();
       this.history = this.history.filter(item => (serverRecord ? item.historyId : item.id) !== id);
       this.saveHistory();
     },
@@ -117,6 +149,8 @@ export const useHistoryStore = defineStore('history', {
     // 删除单条浏览历史 - API请求
     async removeHistoryApi(id) {
       const userStore = useUserStore();
+      const owner = this.syncAccount();
+      const token = userStore.token;
       
       // 检查用户是否登录
       if (!userStore.getLoginStatus) {
@@ -136,6 +170,9 @@ export const useHistoryStore = defineStore('history', {
         if (response.data.code === 200) {
           console.log('删除浏览历史API：删除成功');
           // 更新本地历史记录
+          if (owner !== this.getStorageKey() || token !== userStore.token) {
+            return { success: false, stale: true, message: '账号已切换' };
+          }
           this.removeHistory(id, true);
           return { success: true };
         } else {
@@ -150,20 +187,20 @@ export const useHistoryStore = defineStore('history', {
     
     // 保存到本地存储
     saveHistory() {
-      localStorage.setItem('news_history', JSON.stringify(this.history));
+      localStorage.setItem(this.historyOwner, JSON.stringify(this.history));
     },
     
     // 从本地存储加载
     loadHistory() {
-      const savedHistory = localStorage.getItem('news_history');
-      if (savedHistory) {
-        this.history = JSON.parse(savedHistory);
-      }
+      const savedHistory = localStorage.getItem(this.syncAccount());
+      this.history = savedHistory ? JSON.parse(savedHistory) : [];
     },
     
     // 获取浏览历史 - API请求
     async getHistoryListApi() {
       const userStore = useUserStore();
+      const owner = this.syncAccount();
+      const token = userStore.token;
       
       // 检查用户是否登录
       if (!userStore.getLoginStatus) {
@@ -179,6 +216,9 @@ export const useHistoryStore = defineStore('history', {
           } 
         });
         
+        if (owner !== this.getStorageKey() || token !== userStore.token) {
+          return { success: false, stale: true, message: '账号已切换' };
+        }
         if (response.data.code === 200) {
           // 正确获取list数组
           const historyList = response.data.data.list || [];

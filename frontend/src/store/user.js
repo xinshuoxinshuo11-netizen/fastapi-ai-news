@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia';
 import axios from 'axios';
 import { apiConfig } from '../config/api.js';
+import { useHistoryStore } from './modules/history.js';
 
 export const useUserStore = defineStore('user', {
   state: () => ({
@@ -35,6 +36,7 @@ export const useUserStore = defineStore('user', {
           this.userInfo = userInfo;
           this.token = token;
           this.isLogin = true;
+          useHistoryStore().resetForAccount();
           
           return {
             success: true,
@@ -73,6 +75,7 @@ export const useUserStore = defineStore('user', {
           this.userInfo = userInfo;
           this.token = token;
           this.isLogin = true;
+          useHistoryStore().resetForAccount();
           
           return {
             success: true,
@@ -98,11 +101,13 @@ export const useUserStore = defineStore('user', {
       this.userInfo = null;
       this.token = '';
       this.isLogin = false;
+      useHistoryStore().resetForAccount();
     },
     
     // 获取用户信息
     async getUserInfoDetail() {
       try {
+        const token = this.token;
         // 检查是否有token
         if (!this.token) {
           return {
@@ -115,10 +120,14 @@ export const useUserStore = defineStore('user', {
         const response = await axios.get(`${apiConfig.baseURL}/api/user/info`, {
           headers: {
             // Authorization: `Bearer ${this.token}`
-            Authorization: this.token
+            Authorization: token
           }
         });
         
+        // 迟到的资料响应不能把新账号的 ID 改回旧账号。
+        if (this.token !== token) {
+          return { success: false, stale: true, message: '账号已切换' };
+        }
         // 检查响应状态
         if (response.data && response.data.code === 200) {
           // 更新用户信息

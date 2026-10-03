@@ -6,6 +6,7 @@ from pymysql.constants import CLIENT
 from sqlalchemy.engine import make_url
 
 from config.db_conf import ASYNC_DATABASE_URL
+from migrate_constraints import migrate_constraints
 
 
 def main():
@@ -36,6 +37,8 @@ def main():
             for table in ['news_category', 'news', 'user']:
                 cursor.execute(f'SELECT COUNT(*) FROM `{database}`.`{table}`')
                 print(f'{table}：{cursor.fetchone()[0]} 条')
+        connection.select_db(database)
+        migrate_constraints(connection)
     finally:
         connection.close()
 

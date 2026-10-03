@@ -5,13 +5,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from models.history import History
 from models.news import News
+from models.users import User
 
 
 async def add_history(db: AsyncSession, user_id: int, news_id: int):
     """
     添加历史记录
     """
-    query = select(History).where(History.user_id == user_id, History.news_id == news_id)
+    # 锁定用户行，让同一用户的并发浏览按顺序写入历史。
+    await db.execute(select(User.id).where(User.id == user_id).with_for_update())
+    query = select(History).where(
+        History.user_id == user_id, History.news_id == news_id
+    ).with_for_update()
     result = await db.execute(query)
     existing_history = result.scalar_one_or_none()
     if existing_history:

@@ -153,7 +153,13 @@ onBeforeUnmount(() => {
 // 监听分类变化
 watch(activeTab, (newVal) => {
   const categoryId = displayCategories.value[newVal]?.id
-  if (categoryId) newsStore.changeCategory(categoryId)
+  if (categoryId) {
+    newsStore.changeCategory(categoryId)
+    // 同步当前分类，返回详情时不会再被旧的查询参数覆盖。
+    if (route.path === '/home' && String(route.query.categoryId || '') !== String(categoryId)) {
+      router.replace({ query: { ...route.query, categoryId: String(categoryId) } })
+    }
+  }
 })
 
 // 下拉刷新

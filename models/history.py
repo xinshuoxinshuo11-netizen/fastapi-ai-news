@@ -20,6 +20,7 @@ class History(Base):
         Index('fk_history_user_idx', 'user_id'),
         Index('fk_history_news_idx', 'news_id'),
         Index('idx_view_time', 'view_time'),
+        Index('uq_history_user_news', 'user_id', 'news_id', unique=True),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True, comment="历史ID")

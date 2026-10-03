@@ -134,8 +134,14 @@ const toggleFavorite = async () => {
 
 // 路由 ID 改变时重新加载，避免相关推荐只修改地址而不更新正文。
 watch(newsId, async (id) => {
-  await newsStore.getNewsDetail(id)
+  const loading = newsStore.getNewsDetail(id)
+  const requestId = newsStore.detailRequestId
+  await loading
   if (newsId.value !== id || newsStore.newsDetail.id !== id) return
+  const token = userStore.token
+  const detail = { ...newsStore.newsDetail }
+  const isCurrent = () => newsId.value === id && newsStore.newsDetail.id === id &&
+    newsStore.detailRequestId === requestId && userStore.token === token
   
   // 添加到浏览历史
   if (newsStore.newsDetail.id) {
@@ -152,19 +158,23 @@ watch(newsId, async (id) => {
     // 无论API是否成功，都添加到本地浏览历史
     // historyStore.addHistory(newsStore.newsDetail);
   }
+
+  if (!isCurrent()) return
   
   // 加载收藏数据
   favoriteStore.loadFavorites()
   
   // 检查文章收藏状态
   if (userStore.getLoginStatus && newsStore.newsDetail.id) {
-    const result = await favoriteStore.checkFavoriteStatusApi(newsStore.newsDetail.id)
+    const result = await favoriteStore.checkFavoriteStatusApi(id)
+    // 新闻或账号已切换时，迟到的状态不能写入当前新闻。
+    if (!isCurrent()) return
     if (result.success && !result.isLocal) {
       // 如果API请求成功且不是本地状态，更新本地收藏状态
-      if (result.isFavorite && !favoriteStore.isFavorite(newsStore.newsDetail.id)) {
-        favoriteStore.addFavorite(newsStore.newsDetail)
-      } else if (!result.isFavorite && favoriteStore.isFavorite(newsStore.newsDetail.id)) {
-        favoriteStore.removeFavorite(newsStore.newsDetail.id)
+      if (result.isFavorite && !favoriteStore.isFavorite(id)) {
+        favoriteStore.addFavorite(detail)
+      } else if (!result.isFavorite && favoriteStore.isFavorite(id)) {
+        favoriteStore.removeFavorite(id)
       }
     }
   }

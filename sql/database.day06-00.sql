@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS `user_token` (
   PRIMARY KEY (`id`),
   UNIQUE INDEX `token_UNIQUE` (`token` ASC),
   INDEX `fk_user_token_user_idx` (`user_id` ASC),
+  UNIQUE INDEX `uq_user_token_user` (`user_id` ASC),
   CONSTRAINT `fk_user_token_user`
     FOREIGN KEY (`user_id`)
     REFERENCES `user` (`id`)
@@ -126,6 +127,7 @@ CREATE TABLE IF NOT EXISTS `history` (
   INDEX `fk_history_user_idx` (`user_id` ASC),
   INDEX `fk_history_news_idx` (`news_id` ASC),
   INDEX `idx_view_time` (`view_time` DESC),
+  UNIQUE INDEX `uq_history_user_news` (`user_id` ASC, `news_id` ASC),
   CONSTRAINT `fk_history_user`
     FOREIGN KEY (`user_id`)
     REFERENCES `user` (`id`)
